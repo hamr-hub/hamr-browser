@@ -24,6 +24,7 @@ async def is_logged_in(context: BrowserContext, auth: AuthConfig) -> bool:
         page = await context.new_page()
         try:
             await page.goto(check.url, wait_until="domcontentloaded", timeout=15000)
+            await page.wait_for_timeout(2000)
             current_url = page.url
             indicator = check.logged_in_indicator or {}
             ind_type = indicator.get("type", "url_not_contains")
@@ -63,7 +64,10 @@ async def do_login(context: BrowserContext, auth: AuthConfig):
         from app.models.flow import Step
         for step_data in login_steps:
             step = Step(**step_data)
-            await execute_step(page, step, secrets)
+            try:
+                await execute_step(page, step, secrets)
+            except Exception as e:
+                logger.warning(f"登录步骤 [{step.type}] 执行失败（继续）: {e}")
         logger.info("登录流程执行完成")
     finally:
         await page.close()

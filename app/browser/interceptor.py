@@ -11,20 +11,23 @@ class CaptureTimeoutError(Exception):
     pass
 
 
-async def wait_for_response(
-    page: Page,
-    url_pattern: str,
-    method: Optional[str] = None,
-    timeout: int = 30000,
-) -> Any:
-    loop = asyncio.get_event_loop()
-    future: asyncio.Future = loop.create_future()
+class ResponseWaiter:
+    def __init__(self, page: Page, url_pattern: str, method: Optional[str] = None):
+        self._page = page
+        self._url_pattern = url_pattern
+        self._method = method
+        self._future: asyncio.Future = asyncio.get_running_loop().create_future()
+        self._registered = False
 
-    async def on_response(response: Response):
-        if future.done():
+    def start(self):
+        self._page.on("response", self._on_response)
+        self._registered = True
+
+    async def _on_response(self, response: Response):
+        if self._future.done():
             return
-        url_match = fnmatch(response.url, url_pattern) or url_pattern in response.url
-        method_match = method is None or response.request.method.upper() == method.upper()
+        url_match = fnmatch(response.url, self._url_pattern) or self._url_pattern in response.url
+        method_match = self._method is None or response.request.method.upper() == self._method.upper()
         if url_match and method_match:
             try:
                 content_type = response.headers.get("content-type", "")
@@ -32,18 +35,28 @@ async def wait_for_response(
                     body = await response.json()
                 else:
                     body = await response.text()
-                future.set_result(body)
+                if not self._future.done():
+                    self._future.set_result(body)
             except Exception as e:
-                if not future.done():
-                    future.set_exception(e)
+                if not self._future.done():
+                    self._future.set_exception(e)
 
-    page.on("response", on_response)
+    async def wait(self, timeout: int = 30000) -> Any:
+        try:
+            return await asyncio.wait_for(asyncio.shield(self._future), timeout=timeout / 1000)
+        except asyncio.TimeoutError:
+            raise CaptureTimeoutError(f"等待响应超时（{timeout}ms）：{self._url_pattern}")
+        finally:
+            if self._registered:
+                self._page.remove_listener("response", self._on_response)
 
-    try:
-        return await asyncio.wait_for(asyncio.shield(future), timeout=timeout / 1000)
-    except asyncio.TimeoutError:
-        raise CaptureTimeoutError(
-            f"等待响应超时（{timeout}ms）：{url_pattern}"
-        )
-    finally:
-        page.remove_listener("response", on_response)
+
+async def wait_for_response(
+    page: Page,
+    url_pattern: str,
+    method: Optional[str] = None,
+    timeout: int = 30000,
+) -> Any:
+    waiter = ResponseWaiter(page, url_pattern, method)
+    waiter.start()
+    return await waiter.wait(timeout)

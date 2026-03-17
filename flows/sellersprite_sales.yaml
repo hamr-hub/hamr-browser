@@ -26,19 +26,18 @@ auth:
       - type: navigate
         url: "https://www.sellersprite.com/cn/w/user/login"
       - type: wait_for_selector
-        selector: "input[placeholder*='账号'], input[name='account'], input[type='text']"
-        timeout: 10000
+        selector: "input[name='email']:visible"
+        timeout: 15000
       - type: fill
-        selector: "input[placeholder*='账号'], input[name='account'], input[type='text']"
+        selector: "input[name='email']:visible"
         value: "{{ _auth.username }}"
       - type: fill
-        selector: "input[placeholder*='密码'], input[name='password'], input[type='password']"
+        selector: "input[type='password']:visible"
         value: "{{ _auth.password }}"
       - type: click
-        selector: "button[type='submit'], .login-btn, button:has-text('登录')"
-      - type: wait_for_url
-        url_pattern: "**/dashboard**"
-        timeout: 20000
+        selector: "button[type='submit']:visible"
+      - type: wait
+        milliseconds: 4000
   secrets_key: sellersprite
 
 steps:
@@ -49,8 +48,8 @@ steps:
 
 capture:
   type: wait_for_response
-  url_pattern: "**/tools/sales-estimator/asin.json**"
-  method: GET
+  url_pattern: "**/v2/tools/sales-estimator/asin.json**"
+  method: POST
   timeout: 30000
   extract:
     type: jsonpath

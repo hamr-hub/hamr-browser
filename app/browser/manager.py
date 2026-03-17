@@ -46,11 +46,17 @@ class BrowserManager:
                 ],
                 ignore_default_args=["--enable-automation"],
             )
+            self._context.on("close", self._on_context_close)
             self._initialized = True
             logger.info("浏览器初始化完成")
 
+    def _on_context_close(self, context):
+        logger.warning("浏览器上下文意外关闭，标记为未初始化")
+        self._initialized = False
+        self._context = None
+
     async def new_page(self):
-        await self.initialize()
+        await self._ensure_healthy()
         page = await self._context.new_page()
         await page.add_init_script(
             "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
@@ -58,16 +64,28 @@ class BrowserManager:
         return page
 
     async def get_context(self) -> BrowserContext:
-        await self.initialize()
+        await self._ensure_healthy()
         return self._context
+
+    async def _ensure_healthy(self):
+        if not self._initialized or self._context is None:
+            logger.info("浏览器未就绪，尝试重新初始化...")
+            self._initialized = False
+            await self.initialize()
 
     async def restart(self):
         logger.info("重启浏览器...")
         async with self._lock:
             if self._context:
-                await self._context.close()
+                try:
+                    await self._context.close()
+                except Exception:
+                    pass
             if self._playwright:
-                await self._playwright.stop()
+                try:
+                    await self._playwright.stop()
+                except Exception:
+                    pass
             self._context = None
             self._playwright = None
             self._initialized = False
@@ -76,9 +94,15 @@ class BrowserManager:
 
     async def close(self):
         if self._context:
-            await self._context.close()
+            try:
+                await self._context.close()
+            except Exception:
+                pass
         if self._playwright:
-            await self._playwright.stop()
+            try:
+                await self._playwright.stop()
+            except Exception:
+                pass
         self._initialized = False
 
     def is_ready(self) -> bool:

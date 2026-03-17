@@ -40,15 +40,20 @@ class Step(BaseModel):
         "close_tab",
         "evaluate",
         "screenshot",
+        "try_selectors",
+        "scroll_to",
+        "press_key",
     ]
     url: Optional[str] = None
     selector: Optional[str] = None
+    selectors: Optional[List[str]] = None
     value: Optional[str] = None
     url_pattern: Optional[str] = None
     script: Optional[str] = None
     timeout: Optional[int] = None
     wait_until: Optional[Literal["load", "domcontentloaded", "networkidle"]] = None
     milliseconds: Optional[int] = None
+    key: Optional[str] = None
 
 
 class CaptureExtract(BaseModel):

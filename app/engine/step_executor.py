@@ -9,6 +9,17 @@ logger = get_logger(__name__)
 DEFAULT_TIMEOUT = 15000
 
 
+async def _find_selector(page: Page, selectors: list[str], timeout: int) -> str:
+    import asyncio
+    for sel in selectors:
+        try:
+            await page.wait_for_selector(sel, timeout=min(timeout, 3000))
+            return sel
+        except Exception:
+            continue
+    raise RuntimeError(f"所有选择器均未找到元素: {selectors}")
+
+
 async def execute_step(page: Page, step: Step, params: Dict[str, Any]) -> Any:
     t = step.type
 
@@ -38,10 +49,26 @@ async def execute_step(page: Page, step: Step, params: Dict[str, Any]) -> Any:
         await page.click(selector, timeout=timeout)
 
     elif t == "fill":
-        selector = render_template(step.selector, params)
+        timeout = step.timeout or DEFAULT_TIMEOUT
+        if step.selectors:
+            rendered = [render_template(s, params) for s in step.selectors]
+            selector = await _find_selector(page, rendered, timeout)
+        else:
+            selector = render_template(step.selector, params)
         value = render_template(step.value, params)
-        logger.info(f"fill: {selector} ← {value}")
+        logger.info(f"fill: {selector} ← (value hidden)")
         await page.fill(selector, value)
+
+    elif t == "try_selectors":
+        timeout = step.timeout or DEFAULT_TIMEOUT
+        selectors = [render_template(s, params) for s in (step.selectors or [])]
+        action = step.value or "click"
+        selector = await _find_selector(page, selectors, timeout)
+        logger.info(f"try_selectors ({action}): {selector}")
+        if action == "click":
+            await page.click(selector, timeout=timeout)
+        elif action == "focus":
+            await page.focus(selector)
 
     elif t == "select":
         selector = render_template(step.selector, params)
@@ -64,6 +91,16 @@ async def execute_step(page: Page, step: Step, params: Dict[str, Any]) -> Any:
         path = render_template(step.value or "./logs/screenshot.png", params)
         logger.info(f"screenshot → {path}")
         await page.screenshot(path=path, full_page=True)
+
+    elif t == "scroll_to":
+        selector = render_template(step.selector, params)
+        logger.info(f"scroll_to: {selector}")
+        await page.eval_on_selector(selector, "el => el.scrollIntoView()")
+
+    elif t == "press_key":
+        key = render_template(step.key or "Enter", params)
+        logger.info(f"press_key: {key}")
+        await page.keyboard.press(key)
 
     elif t in ("new_tab", "close_tab"):
         pass
