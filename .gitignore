@@ -1,0 +1,10 @@
+.env
+secrets.yaml
+browser_profile/
+logs/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/

@@ -1,0 +1,58 @@
+id: sellersprite_sales
+name: SellerSprite 销量估算
+description: 查询指定 ASIN 在指定站点的月销量估算数据，无需手动登录
+
+parameters:
+  - name: asin
+    type: string
+    required: true
+    description: 亚马逊 ASIN 编码
+    example: B0D81C6WGH
+  - name: market
+    type: string
+    required: true
+    description: 站点代码（US/UK/DE/JP/FR/CA/IT/ES）
+    example: UK
+
+auth:
+  check:
+    type: navigate_and_check
+    url: "https://www.sellersprite.com/cn/w/user/login"
+    logged_in_indicator:
+      type: url_not_contains
+      value: "/login"
+  login:
+    steps:
+      - type: navigate
+        url: "https://www.sellersprite.com/cn/w/user/login"
+      - type: wait_for_selector
+        selector: "input[placeholder*='账号'], input[name='account'], input[type='text']"
+        timeout: 10000
+      - type: fill
+        selector: "input[placeholder*='账号'], input[name='account'], input[type='text']"
+        value: "{{ _auth.username }}"
+      - type: fill
+        selector: "input[placeholder*='密码'], input[name='password'], input[type='password']"
+        value: "{{ _auth.password }}"
+      - type: click
+        selector: "button[type='submit'], .login-btn, button:has-text('登录')"
+      - type: wait_for_url
+        url_pattern: "**/dashboard**"
+        timeout: 20000
+  secrets_key: sellersprite
+
+steps:
+  - type: new_tab
+  - type: navigate
+    url: "https://www.sellersprite.com/v2/tools/sales-estimator?market={{ market }}&asin={{ asin }}"
+    wait_until: domcontentloaded
+
+capture:
+  type: wait_for_response
+  url_pattern: "**/tools/sales-estimator/asin.json**"
+  method: GET
+  timeout: 30000
+  extract:
+    type: jsonpath
+    path: "$"
+  on_timeout: error
