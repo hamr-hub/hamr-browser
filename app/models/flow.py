@@ -30,15 +30,22 @@ class Step(BaseModel):
     type: Literal[
         "navigate",
         "click",
+        "hover",
         "fill",
+        "type",
+        "check",
+        "uncheck",
         "select",
         "wait_for_selector",
         "wait_for_url",
+        "wait_for_load_state",
         "wait_for_response",
         "wait",
         "new_tab",
         "close_tab",
         "evaluate",
+        "get_text",
+        "get_attribute",
         "screenshot",
         "try_selectors",
         "scroll_to",
@@ -53,7 +60,7 @@ class Step(BaseModel):
     timeout: Optional[int] = None
     wait_until: Optional[Literal["load", "domcontentloaded", "networkidle"]] = None
     milliseconds: Optional[int] = None
-    key: Optional[str] = None
+    key: Optional[str] = None  # 用于 press_key / get_text / get_attribute 存储变量名
 
 
 class CaptureExtract(BaseModel):

@@ -42,11 +42,23 @@ async def execute_step(page: Page, step: Step, params: Dict[str, Any]) -> Any:
         logger.info(f"wait_for_url: {url_pattern}")
         await page.wait_for_url(url_pattern, timeout=timeout)
 
+    elif t == "wait_for_load_state":
+        state = step.value or "networkidle"
+        timeout = step.timeout or DEFAULT_TIMEOUT
+        logger.info(f"wait_for_load_state: {state}")
+        await page.wait_for_load_state(state, timeout=timeout)
+
     elif t == "click":
         selector = render_template(step.selector, params)
         timeout = step.timeout or DEFAULT_TIMEOUT
         logger.info(f"click: {selector}")
         await page.click(selector, timeout=timeout)
+
+    elif t == "hover":
+        selector = render_template(step.selector, params)
+        timeout = step.timeout or DEFAULT_TIMEOUT
+        logger.info(f"hover: {selector}")
+        await page.hover(selector, timeout=timeout)
 
     elif t == "fill":
         timeout = step.timeout or DEFAULT_TIMEOUT
@@ -59,6 +71,27 @@ async def execute_step(page: Page, step: Step, params: Dict[str, Any]) -> Any:
         logger.info(f"fill: {selector} ← (value hidden)")
         await page.fill(selector, value)
 
+    elif t == "type":
+        # 逐字符输入（触发 keydown/keyup 事件，适用于需要输入事件的场景）
+        timeout = step.timeout or DEFAULT_TIMEOUT
+        selector = render_template(step.selector, params)
+        value = render_template(step.value, params)
+        delay = step.milliseconds or 50
+        logger.info(f"type: {selector} ← (value hidden)")
+        await page.type(selector, value, delay=delay, timeout=timeout)
+
+    elif t == "check":
+        selector = render_template(step.selector, params)
+        timeout = step.timeout or DEFAULT_TIMEOUT
+        logger.info(f"check: {selector}")
+        await page.check(selector, timeout=timeout)
+
+    elif t == "uncheck":
+        selector = render_template(step.selector, params)
+        timeout = step.timeout or DEFAULT_TIMEOUT
+        logger.info(f"uncheck: {selector}")
+        await page.uncheck(selector, timeout=timeout)
+
     elif t == "try_selectors":
         timeout = step.timeout or DEFAULT_TIMEOUT
         selectors = [render_template(s, params) for s in (step.selectors or [])]
@@ -69,6 +102,8 @@ async def execute_step(page: Page, step: Step, params: Dict[str, Any]) -> Any:
             await page.click(selector, timeout=timeout)
         elif action == "focus":
             await page.focus(selector)
+        elif action == "hover":
+            await page.hover(selector)
 
     elif t == "select":
         selector = render_template(step.selector, params)
@@ -86,6 +121,26 @@ async def execute_step(page: Page, step: Step, params: Dict[str, Any]) -> Any:
         logger.info(f"evaluate: {script[:80]}...")
         result = await page.evaluate(script)
         return result
+
+    elif t == "get_text":
+        # 获取元素文本内容，存入 params（供后续步骤使用）
+        selector = render_template(step.selector, params)
+        key = step.key or "text_result"
+        timeout = step.timeout or DEFAULT_TIMEOUT
+        logger.info(f"get_text: {selector} → params['{key}']")
+        text = await page.inner_text(selector, timeout=timeout)
+        params[key] = text
+        return text
+
+    elif t == "get_attribute":
+        selector = render_template(step.selector, params)
+        attr = step.value or "href"
+        key = step.key or f"attr_{attr}"
+        timeout = step.timeout or DEFAULT_TIMEOUT
+        logger.info(f"get_attribute: {selector}[{attr}] → params['{key}']")
+        value = await page.get_attribute(selector, attr, timeout=timeout)
+        params[key] = value
+        return value
 
     elif t == "screenshot":
         path = render_template(step.value or "./logs/screenshot.png", params)

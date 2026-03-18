@@ -25,6 +25,9 @@ auth:
     steps:
       - type: navigate
         url: "https://www.sellersprite.com/cn/w/user/login"
+        wait_until: networkidle
+      - type: screenshot
+        value: "./logs/login_page.png"
       - type: wait_for_selector
         selector: "input[name='email']:visible"
         timeout: 15000
@@ -34,14 +37,17 @@ auth:
       - type: fill
         selector: "input[type='password']:visible"
         value: "{{ _auth.password }}"
+      - type: screenshot
+        value: "./logs/login_before_submit.png"
       - type: click
         selector: "button[type='submit']:visible"
       - type: wait
-        milliseconds: 4000
+        milliseconds: 6000
+      - type: screenshot
+        value: "./logs/login_after_submit.png"
   secrets_key: sellersprite
 
 steps:
-  - type: new_tab
   - type: navigate
     url: "https://www.sellersprite.com/v2/tools/sales-estimator?market={{ market }}&asin={{ asin }}"
     wait_until: domcontentloaded

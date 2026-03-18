@@ -4,6 +4,7 @@ from typing import Any, Dict, Literal, Optional
 
 class FlowRunResult(BaseModel):
     flow_id: str
+    run_id: Optional[str] = None
     status: Literal["success", "error"]
     duration_ms: int
     data: Optional[Any] = None

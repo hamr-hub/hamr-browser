@@ -24,8 +24,9 @@ async def is_logged_in(context: BrowserContext, auth: AuthConfig) -> bool:
         page = await context.new_page()
         try:
             await page.goto(check.url, wait_until="domcontentloaded", timeout=15000)
-            await page.wait_for_timeout(2000)
+            await page.wait_for_timeout(3000)
             current_url = page.url
+            logger.info(f"登录检测 URL: {current_url}")
             indicator = check.logged_in_indicator or {}
             ind_type = indicator.get("type", "url_not_contains")
             ind_value = indicator.get("value", "")
@@ -44,10 +45,11 @@ async def is_logged_in(context: BrowserContext, auth: AuthConfig) -> bool:
     return True
 
 
-async def do_login(context: BrowserContext, auth: AuthConfig):
+async def do_login(context: BrowserContext, auth: AuthConfig) -> str:
+    """执行登录，返回登录后的最终 URL"""
     if not auth.login:
         logger.warning("未配置登录流程，跳过自动登录")
-        return
+        return ""
 
     secrets = {}
     if auth.secrets_key:
@@ -68,7 +70,9 @@ async def do_login(context: BrowserContext, auth: AuthConfig):
                 await execute_step(page, step, secrets)
             except Exception as e:
                 logger.warning(f"登录步骤 [{step.type}] 执行失败（继续）: {e}")
-        logger.info("登录流程执行完成")
+        final_url = page.url
+        logger.info(f"登录流程执行完成，当前 URL: {final_url}")
+        return final_url
     finally:
         await page.close()
 
@@ -79,10 +83,24 @@ async def ensure_logged_in(context: BrowserContext, auth: Optional[AuthConfig]):
     logged_in = await is_logged_in(context, auth)
     if not logged_in:
         logger.info("检测到未登录，开始自动登录...")
-        await do_login(context, auth)
+        final_url = await do_login(context, auth)
+
+        check = auth.check
+        indicator = (check.logged_in_indicator or {}) if check else {}
+        ind_type = indicator.get("type", "url_not_contains")
+        ind_value = indicator.get("value", "")
+
+        if final_url:
+            if ind_type == "url_not_contains" and ind_value not in final_url:
+                logger.info(f"登录成功（URL 验证通过: {final_url}）")
+                return
+            elif ind_type == "url_contains" and ind_value in final_url:
+                logger.info(f"登录成功（URL 验证通过: {final_url}）")
+                return
+
         logged_in_after = await is_logged_in(context, auth)
         if not logged_in_after:
-            raise RuntimeError("自动登录失败，请手动登录后重试")
+            raise RuntimeError(f"自动登录失败，登录后 URL: {final_url}")
         logger.info("登录成功")
     else:
         logger.info("已登录，跳过认证")

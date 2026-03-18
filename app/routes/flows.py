@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
-from typing import Any, Dict, List
+from fastapi import APIRouter, HTTPException, UploadFile, File, Body
+from typing import Any, Dict, List, Optional
 from app.models.result import FlowRunResult, FlowSummary
 from app.storage.flow_store import flow_store
 from app.engine.flow_engine import run_flow
@@ -32,8 +32,27 @@ async def get_flow(flow_id: str):
     return flow
 
 
+@router.get("/{flow_id}/schema")
+async def get_flow_schema(flow_id: str):
+    """获取流程参数 Schema，便于调用方了解必填参数"""
+    flow = flow_store.get_flow(flow_id)
+    if not flow:
+        raise HTTPException(status_code=404, detail=f"流程不存在：{flow_id}")
+    return {
+        "flow_id": flow.id,
+        "name": flow.name,
+        "description": flow.description,
+        "has_auth": flow.auth is not None,
+        "parameters": [p.model_dump() for p in flow.parameters],
+        "example_request": {
+            p.name: p.example or p.default
+            for p in flow.parameters
+        },
+    }
+
+
 @router.post("/{flow_id}/run", response_model=FlowRunResult)
-async def run_flow_endpoint(flow_id: str, body: Dict[str, Any] = {}):
+async def run_flow_endpoint(flow_id: str, body: Dict[str, Any] = Body(default={})):
     flow = flow_store.get_flow(flow_id)
     if not flow:
         raise HTTPException(status_code=404, detail=f"流程不存在：{flow_id}")
@@ -57,9 +76,19 @@ async def run_flow_endpoint(flow_id: str, body: Dict[str, Any] = {}):
 
 
 @router.post("")
-async def register_flow(file: UploadFile = File(...)):
-    content = await file.read()
-    yaml_str = content.decode("utf-8")
+async def register_flow(
+    file: Optional[UploadFile] = File(default=None),
+    yaml_content: Optional[str] = Body(default=None, media_type="text/plain"),
+):
+    """注册新流程：支持上传 YAML 文件或直接 POST YAML 文本"""
+    if file is not None:
+        content = await file.read()
+        yaml_str = content.decode("utf-8")
+    elif yaml_content is not None:
+        yaml_str = yaml_content
+    else:
+        raise HTTPException(status_code=400, detail="请提供 YAML 文件（multipart）或 YAML 文本（text/plain body）")
+
     try:
         import yaml
         data = yaml.safe_load(yaml_str)
@@ -68,14 +97,27 @@ async def register_flow(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="YAML 中缺少 id 字段")
         flow = flow_store.save_flow(flow_id, yaml_str)
         return {"message": f"流程已注册：{flow.id}", "flow": flow}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"流程配置解析失败：{e}")
 
 
 @router.put("/{flow_id}")
-async def update_flow(flow_id: str, file: UploadFile = File(...)):
-    content = await file.read()
-    yaml_str = content.decode("utf-8")
+async def update_flow(
+    flow_id: str,
+    file: Optional[UploadFile] = File(default=None),
+    yaml_content: Optional[str] = Body(default=None, media_type="text/plain"),
+):
+    """更新流程配置：支持上传文件或直接 POST YAML 文本"""
+    if file is not None:
+        content = await file.read()
+        yaml_str = content.decode("utf-8")
+    elif yaml_content is not None:
+        yaml_str = yaml_content
+    else:
+        raise HTTPException(status_code=400, detail="请提供 YAML 文件（multipart）或 YAML 文本（text/plain body）")
+
     try:
         flow = flow_store.save_flow(flow_id, yaml_str)
         return {"message": f"流程已更新：{flow.id}", "flow": flow}
