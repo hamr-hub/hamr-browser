@@ -1,0 +1,31 @@
+{
+  "generated_at": "2026-03-17T11:26:42.558457",
+  "summary": {
+    "total": 5,
+    "success": 5,
+    "failed": 0,
+    "retried": 1,
+    "elapsed_seconds": 75.7,
+    "avg_rate_per_second": 0.07
+  },
+  "latency_ms": {
+    "p50": 27847.0,
+    "p90": 38919.3,
+    "p99": 38919.3,
+    "max": 38919.3
+  },
+  "code_distribution": {
+    "OK": 2,
+    "__non_dict__": 3
+  },
+  "http_status_distribution": {
+    "200": 5
+  },
+  "config": {
+    "api_base": "http://localhost:8000",
+    "market": "UK",
+    "concurrency": 2,
+    "timeout": 60,
+    "max_retries": 1
+  }
+}

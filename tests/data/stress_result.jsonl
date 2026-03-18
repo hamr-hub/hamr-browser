@@ -1,0 +1,5 @@
+{"asin": "B00HD78QPE", "http_status": 200, "flow_status": "success", "data_code": "OK", "duration_ms": 20908.1, "error": null, "retries": 0}
+{"asin": "B0001P0GDK", "http_status": 200, "flow_status": "success", "data_code": "OK", "duration_ms": 38919.3, "error": null, "retries": 0}
+{"asin": "B00NFR1M7U", "http_status": 200, "flow_status": "success", "data_code": "__non_dict__", "duration_ms": 5504.8, "error": null, "retries": 1}
+{"asin": "B00HZV9YE0", "http_status": 200, "flow_status": "success", "data_code": "__non_dict__", "duration_ms": 34807.6, "error": null, "retries": 0}
+{"asin": "B00NTCH52W", "http_status": 200, "flow_status": "success", "data_code": "__non_dict__", "duration_ms": 27847.0, "error": null, "retries": 0}
